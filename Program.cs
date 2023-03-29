@@ -195,7 +195,7 @@
                 }
                 Console.WriteLine();
             }
-            Console.WriteLine("collision count: " + Contacted.Count);
+            Console.WriteLine("Contact count: " + Contacted.Count);
 
         }
 

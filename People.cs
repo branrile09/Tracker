@@ -3,11 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
+
 
 namespace Tracker
 {
     internal class People
     {
+
+        Stopwatch timeSinceUpdate = new Stopwatch();
 
         public int x = 0;
         public int y = 0;
@@ -15,12 +19,12 @@ namespace Tracker
         public string Username = " ";
 
 
-
         public People(int x, int y, string Username)
         {
             this.x = x;
             this.y = y;
             this.Username = Username;
+            timeSinceUpdate.Start();
         }
 
         public People(byte[] body)
@@ -30,6 +34,7 @@ namespace Tracker
             Username = words[0];
             x = int.Parse(words[1]);
             y = int.Parse(words[2]);
+            timeSinceUpdate.Start();
         }
 
 
@@ -52,7 +57,6 @@ namespace Tracker
             byte[] encoded_message = Encoding.UTF8.GetBytes(Username);
             return encoded_message;
         }
-
 
 
         public void PersonMove(string Move)
@@ -82,7 +86,16 @@ namespace Tracker
                         x = Tracker.Program.maxX;
                     break;
             }
+            timeSinceUpdate.Restart();
+        }
 
+        public bool healthCheck()
+        {
+            if (timeSinceUpdate.Elapsed.TotalSeconds > 5)
+            {
+                return false;            
+            }
+            return true;       
         }
 
 

@@ -5,6 +5,7 @@
     using RabbitMQ.Client.Events;
     using System.Text;
     using System.Threading.Tasks;
+    using System.Diagnostics;
 
     internal class Program
     {
@@ -14,27 +15,34 @@
         static List<Contacts> Contacted = new List<Contacts>();
         static List<People> Peoples = new List<People>();
 
+        static public Mutex rendererMutex = new Mutex();
 
         static void Main(string[] args)
         {
             var factory = new ConnectionFactory { HostName = "localhost" };
             using var connection = factory.CreateConnection();
             using var channel = connection.CreateModel();
-            string topic = "Positions";
             bool FINISHED = false;
 
 
             //connect and join
             ConnectionPersons("Positions", channel);
             ConnectionQuery("Query", channel);
-
-
+            Stopwatch clearScreenTimer = new Stopwatch();
+            clearScreenTimer.Start();
             while (!FINISHED)
             {
+                PositionalRenderer();                
+                Thread.Sleep(100);   
+                connectionHealthCheck();
 
-                PositionalRenderer();
-                Thread.Sleep(100);
-                //Console.Clear();
+                //clear screen
+                if (clearScreenTimer.Elapsed.TotalSeconds > 5)
+                {
+                    clearScreenTimer.Restart();
+                    Console.Clear();                
+                }
+
 
             }
 
@@ -104,7 +112,7 @@
 
                 }
 
-
+               
             };
 
             channel.BasicConsume(queue: queueName,
@@ -170,12 +178,12 @@
 
         static void PositionalRenderer()
         {
-
+           rendererMutex.WaitOne();
             Console.SetCursorPosition(0, 0);
-            for (int row = 0; row < maxY; row++)
+            for (int row = 0; row < maxY+1; row++)
             {
 
-                for (int col = 0; col < maxX; col++)
+                for (int col = 0; col < maxX+1; col++)
                 {
                     for (int i = 0; i < Peoples.Count(); i++)
                     {
@@ -196,9 +204,25 @@
                 Console.WriteLine();
             }
             Console.WriteLine("Contact count: " + Contacted.Count);
-
+            rendererMutex.ReleaseMutex();
         }
 
+
+        static void connectionHealthCheck()
+        {
+            for (int i = 0; i < Peoples.Count; i++)
+            {
+                bool healthy = Peoples[i].healthCheck();
+                if (!healthy)
+                {
+                    Peoples.RemoveAt(i);
+                    Console.Clear();
+                    i--;              
+                
+                }
+            
+            }
+        }
 
     }
 }

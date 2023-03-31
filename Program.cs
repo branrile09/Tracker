@@ -131,29 +131,34 @@
 
             channel.QueueBind(queue: queueName,
                 exchange: topic,
-                routingKey: string.Empty);
+                routingKey: String.Empty);
 
             //consuumer listener
             EventingBasicConsumer consumer = new(channel);
             consumer.Received += (model, ea) =>
             {
-                byte[] body = ea.Body.ToArray();
-                string message = Encoding.UTF8.GetString(body);
-                string contacts = "";
-
-                foreach (Contacts c in Contacted)
+                if (ea.RoutingKey == "Request")
                 {
-                    if (c.Username1 == message)
+                    byte[] body = ea.Body.ToArray();
+                    string message = Encoding.UTF8.GetString(body);
+                    string contacts = "";
+
+                    foreach (Contacts c in Contacted)
                     {
-                        contacts = c.Username2 + " " + contacts;
+                        if (c.Username1 == message)
+                        {
+                            contacts = c.Username2 + " " + contacts;
+                        }
+                        else if (c.Username2 == message)
+                        {
+                            contacts = c.Username1 + " " + contacts;
+                        }
                     }
-                    else if (c.Username2 == message)
+                    if (contacts.Length > 0)
                     {
-                        contacts = c.Username1 + " " + contacts;
+                        PublishCompleted(channel, contacts);
                     }
                 }
-                PublishCompleted(channel, contacts);
-
 
             };
 
@@ -164,11 +169,11 @@
 
         static void PublishCompleted(IModel channel, string contactsMade)
         {
-
+            Debug.WriteLine(contactsMade);
             byte[] encoded_message = Encoding.UTF8.GetBytes(contactsMade);
-
+            Debug.WriteLine("error in query reply");
             channel.BasicPublish(exchange: "Query",
-                routingKey: string.Empty,
+                routingKey: "Response",
                 basicProperties: null,
                 body: encoded_message);
 

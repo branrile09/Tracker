@@ -15,6 +15,7 @@
         static List<Contacts> Contacted = new List<Contacts>();
         static List<People> Peoples = new List<People>();
 
+        //mutex for fun threads stuffs
         static public Mutex rendererMutex = new Mutex();
 
         static void Main(string[] args)
@@ -36,7 +37,7 @@
                 Thread.Sleep(100);   
                 connectionHealthCheck();
 
-                //clear screen
+                //clear screen regularly, to prevent weird stuffs
                 if (clearScreenTimer.Elapsed.TotalSeconds > 5)
                 {
                     clearScreenTimer.Restart();
@@ -68,20 +69,21 @@
                 string message = Encoding.UTF8.GetString(body);
 
                 string RK = ea.RoutingKey;
+                //using routing key to determine different commands
                 if (RK == "connect")
                 {
-                    //Console.WriteLine(" person connected");
+                    //create new object, add to list
                     People newGuy = new People(body);
                     Peoples.Add(newGuy);
                 }
                 else if (RK == "movement")
                 {
-                    //Console.WriteLine(" person moved");
+                    //process movement, 
                     string[] words = message.Split(' ');
                     string Username = words[0];
 
                     int ID = 0;
-
+                    //find person in list and save ID
                     for (int i = 0; i < Peoples.Count(); i++)
                     {
                         if (Peoples[i].Username == Username)
@@ -92,15 +94,15 @@
                         }
 
                     }
-
+                    //now we check for collisions/contact
                     foreach (People p in Peoples)
                     {
                         if (p.Username == words[0])
-                        {
+                        { //same person, we ignore
                             continue;
                         }
                         if (p.x == Peoples[ID].x && p.y == Peoples[ID].y)
-                        {
+                        {// check for collision
                             Contacts newContact = new Contacts(p.Username, Peoples[ID].Username, p.x, p.y);
                             Contacted.Add(newContact);
 
@@ -138,16 +140,16 @@
             consumer.Received += (model, ea) =>
             {
                 if (ea.RoutingKey == "Request")
-                {
+                { // routing key request, as i need to send responses that needs to be ignored
                     byte[] body = ea.Body.ToArray();
                     string message = Encoding.UTF8.GetString(body);
                     string contacts = "";
-
+                    //we cycle through list of collisions recorded, then we add person we collided with to the list
                     foreach (Contacts c in Contacted)
                     {
                         if (c.Username1 == message)
                         {
-                            contacts = c.Username2 + " " + contacts;
+                            contacts = c.Username2 + " " + contacts; //we do it this way to order list correctly
                         }
                         else if (c.Username2 == message)
                         {
@@ -155,7 +157,7 @@
                         }
                     }
                     if (contacts.Length > 0)
-                    {
+                    { //we only publish when there is atleast 1 person contacted
                         PublishCompleted(channel, contacts);
                     }
                 }
@@ -169,20 +171,18 @@
 
         static void PublishCompleted(IModel channel, string contactsMade)
         {
-            Debug.WriteLine(contactsMade);
-            byte[] encoded_message = Encoding.UTF8.GetBytes(contactsMade);
-            Debug.WriteLine("error in query reply");
+            //respond to query            
+            byte[] encoded_message = Encoding.UTF8.GetBytes(contactsMade);            
             channel.BasicPublish(exchange: "Query",
                 routingKey: "Response",
                 basicProperties: null,
                 body: encoded_message);
-
-
         }
 
 
         static void PositionalRenderer()
         {
+            //literally stupidest way to render people, but it works <insert shrug emoji>
            rendererMutex.WaitOne();
             Console.SetCursorPosition(0, 0);
             for (int row = 0; row < maxY+1; row++)
@@ -215,6 +215,8 @@
 
         static void connectionHealthCheck()
         {
+            //we are checking connection is good, or person still active
+            //if no longer active, we remove them from the list
             for (int i = 0; i < Peoples.Count; i++)
             {
                 bool healthy = Peoples[i].healthCheck();
